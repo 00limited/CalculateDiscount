@@ -6,6 +6,7 @@ import (
 	"counting_discount/models"
 	"counting_discount/repositories"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -14,11 +15,12 @@ import (
 )
 
 type handlerUser struct {
-	UserRepository repositories.UserRepository
+	UserRepository    repositories.UserRepository
+	ProductRepository repositories.ProductRepository
 }
 
-func HandlerUser(UserRepository repositories.UserRepository) *handlerUser {
-	return &handlerUser{UserRepository}
+func HandlerUser(UserRepository repositories.UserRepository, ProductRepository repositories.ProductRepository) *handlerUser {
+	return &handlerUser{UserRepository, ProductRepository}
 }
 
 func (h *handlerUser) FindUsers(w http.ResponseWriter, r *http.Request) {
@@ -59,20 +61,17 @@ func (h *handlerUser) GetUser(w http.ResponseWriter, r *http.Request) {
 func (h *handlerUser) CreateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var productId []int
-	for _, r := range r.FormValue("productId") {
-		if int(r-'0') >= 0 {
-			productId = append(productId, int(r-'0'))
-		}
+	request := usersdto.CreateUserRequest{}
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		fmt.Println(err)
 	}
 
-	request := usersdto.CreateUserRequest{
-		Name:      r.FormValue("name"),
-		ProductId: productId,
-	}
+	fmt.Println(request)
 
 	validation := validator.New()
-	err := validation.Struct(request)
+	err = validation.Struct(request)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		response := dto.ErrorResult{Code: http.StatusInternalServerError, Message: err.Error()}
@@ -80,15 +79,22 @@ func (h *handlerUser) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get all category data by id []
-	product, _ := h.UserRepository.FindProductById(productId)
+	product, _ := h.UserRepository.FindProductById(request.ProductId)
+
+	var totalPrice int
+	for i := 1; i <= len(request.ProductId); i++ {
+		pddetail, _ := h.ProductRepository.GetProduct(i)
+		totalPrice += pddetail.Price
+	}
 
 	user := models.User{
 		Name:    request.Name,
+		Total:   totalPrice,
 		Product: product,
 	}
 
 	user, err = h.UserRepository.CreateUser(user)
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		response := dto.ErrorResult{Code: http.StatusInternalServerError, Message: err.Error()}

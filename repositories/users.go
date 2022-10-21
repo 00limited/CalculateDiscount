@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"counting_discount/models"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -13,6 +14,7 @@ type UserRepository interface {
 	CreateUser(User models.User) (models.User, error)
 	UpdateUser(User models.User) (models.User, error)
 	DeleteUser(User models.User) (models.User, error)
+	UpdateTotal(User models.User, ID int) (models.User, error)
 }
 
 func RepositoryUsers(db *gorm.DB) *repository {
@@ -21,6 +23,7 @@ func RepositoryUsers(db *gorm.DB) *repository {
 
 func (r *repository) FindUsers() ([]models.User, error) {
 	var users []models.User
+
 	err := r.db.Preload("Product").Find(&users).Error
 
 	return users, err
@@ -41,7 +44,7 @@ func (r *repository) GetUser(ID int) (models.User, error) {
 }
 
 func (r *repository) CreateUser(user models.User) (models.User, error) {
-	err := r.db.Create(&user).Error
+	err := r.db.Preload("Product").Create(&user).Error
 
 	return user, err
 }
@@ -56,6 +59,13 @@ func (r *repository) UpdateUser(user models.User) (models.User, error) {
 
 func (r *repository) DeleteUser(user models.User) (models.User, error) {
 	err := r.db.Delete(&user).Error
+
+	return user, err
+}
+
+func (r *repository) UpdateTotal(user models.User, ID int) (models.User, error) {
+	fmt.Println("wowo ", user.Total)
+	err := r.db.Model(&user).Update("total", user.Total).Error
 
 	return user, err
 }
