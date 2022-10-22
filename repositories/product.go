@@ -14,10 +14,6 @@ type ProductRepository interface {
 	DeleteProduct(product models.Product) (models.Product, error)
 }
 
-type repository struct {
-	db *gorm.DB
-}
-
 func RepositoryProduct(db *gorm.DB) *repository {
 	return &repository{db}
 }
