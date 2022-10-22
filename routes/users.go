@@ -11,7 +11,8 @@ import (
 func UserRoutes(r *mux.Router) {
 	userRepository := repositories.RepositoryUsers(mysql.DB)
 	productRepository := repositories.RepositoryProduct(mysql.DB)
-	h := handlers.HandlerUser(userRepository, productRepository)
+	orderRepository := repositories.RepositoryOrder(mysql.DB)
+	h := handlers.HandlerUser(userRepository, productRepository, orderRepository)
 
 	r.HandleFunc("/users", h.FindUsers).Methods("GET")
 	r.HandleFunc("/user/{id}", h.GetUser).Methods("GET")

@@ -11,8 +11,7 @@ type OrderRepository interface {
 	GetOrder(ID int) (models.Order, error)
 	FindUserById(UserID []int) ([]models.User, error)
 	CreateOrder(Order models.Order) (models.Order, error)
-	UpdateOrder(Order models.Order) (models.Order, error)
-	DeleteOrder(Order models.Order) (models.User, error)
+	DeleteOrder(Order models.Order) (models.Order, error)
 }
 
 func RepositoryOrder(db *gorm.DB) *repository {

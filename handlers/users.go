@@ -17,10 +17,11 @@ import (
 type handlerUser struct {
 	UserRepository    repositories.UserRepository
 	ProductRepository repositories.ProductRepository
+	OrderRepository   repositories.OrderRepository
 }
 
-func HandlerUser(UserRepository repositories.UserRepository, ProductRepository repositories.ProductRepository) *handlerUser {
-	return &handlerUser{UserRepository, ProductRepository}
+func HandlerUser(UserRepository repositories.UserRepository, ProductRepository repositories.ProductRepository, OrderRepository repositories.OrderRepository) *handlerUser {
+	return &handlerUser{UserRepository, ProductRepository, OrderRepository}
 }
 
 func (h *handlerUser) FindUsers(w http.ResponseWriter, r *http.Request) {
@@ -61,17 +62,65 @@ func (h *handlerUser) GetUser(w http.ResponseWriter, r *http.Request) {
 func (h *handlerUser) CreateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	request := usersdto.CreateUserRequest{}
+	requests := []usersdto.CreateUserRequest{}
 
-	err := json.NewDecoder(r.Body).Decode(&request)
+	err := json.NewDecoder(r.Body).Decode(&requests)
 	if err != nil {
+		fmt.Println("koko")
 		fmt.Println(err)
 	}
 
-	fmt.Println(request)
+	// fmt.Println(requests)
+	var totalOrder int
+	var discountUser float64
+	var countDis int
+	var finalPrice int
 
-	validation := validator.New()
-	err = validation.Struct(request)
+	for i := 0; i < len(requests); i++ {
+
+	}
+	// fmt.Println("totalOrder", totalOrder)
+
+	for i := 0; i < len(requests); i++ {
+		request := requests[i]
+
+		//counting all price for all buyer
+		totalOrder += request.Price
+
+		//counting persent each user from total order
+		discountUser = (float64(request.Price) / float64(totalOrder)) * 100
+
+		//counting discount for order and check maxdiscount no more than 30.000
+		if (totalOrder*30)/100 > 30000 {
+			countDis = 30000
+		} else {
+			countDis = (totalOrder * 30) / 100
+		}
+
+		//counting finalprice after total old order substrack by countdis
+		finalPrice = totalOrder - countDis
+
+		//update and counting for each user mush be pay
+		UserTotal := (float64(finalPrice) * discountUser) / 100
+		requests[i].Price = int(UserTotal)
+
+		// fmt.Println("discountUser", discountUser)
+		// fmt.Println("countDis: ", countDis)
+		// fmt.Println("finalPrice: ", finalPrice)
+		// fmt.Println(UserTotal)
+		// fmt.Printf("user %s, final price yg harus dibayar %d\n", request.Name, request.Price)
+	}
+
+	orderStruct := models.Order{
+		Discount:    30,
+		Total:       totalOrder,
+		MaxDiscount: 30000,
+	}
+
+	// create order di sini
+
+	order, err := h.OrderRepository.CreateOrder(orderStruct)
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		response := dto.ErrorResult{Code: http.StatusInternalServerError, Message: err.Error()}
@@ -79,33 +128,27 @@ func (h *handlerUser) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, _ := h.UserRepository.FindProductById(request.ProductId)
+	for i := 0; i < len(requests); i++ {
+		request := requests[i]
 
-	var totalPrice int
-	for i := 1; i <= len(request.ProductId); i++ {
-		pddetail, _ := h.ProductRepository.GetProduct(i)
-		totalPrice += pddetail.Price
+		user := models.User{
+			Name:    request.Name,
+			Total:   request.Price,
+			OrderID: uint(order.ID),
+		}
+
+		user, err = h.UserRepository.CreateUser(user)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			response := dto.ErrorResult{Code: http.StatusInternalServerError, Message: err.Error()}
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
 	}
-
-	user := models.User{
-		Name:    request.Name,
-		Total:   totalPrice,
-		Product: product,
-	}
-
-	user, err = h.UserRepository.CreateUser(user)
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		response := dto.ErrorResult{Code: http.StatusInternalServerError, Message: err.Error()}
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	user, _ = h.UserRepository.GetUser(user.ID)
 
 	w.WriteHeader(http.StatusOK)
-	response := dto.SuccessResult{Code: http.StatusOK, Data: user}
+	response := dto.SuccessResult{Code: http.StatusOK, Data: requests}
 	json.NewEncoder(w).Encode(response)
 }
 

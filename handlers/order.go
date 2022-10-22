@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	ordersdto "counting_discount/dto/Order"
+	orderdto "counting_discount/dto/Order"
 	dto "counting_discount/dto/result"
 	"counting_discount/models"
 	"counting_discount/repositories"
@@ -61,14 +61,12 @@ func (h *handlerOrder) GetOrder(w http.ResponseWriter, r *http.Request) {
 func (h *handlerOrder) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	request := ordersdto.OrderRequest{}
+	request := orderdto.OrderRequest{}
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	fmt.Println(request)
 
 	validation := validator.New()
 	err = validation.Struct(request)
@@ -79,30 +77,51 @@ func (h *handlerOrder) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, _ := h.OrderRepository.FindUserById(request.UserId)
+	// user, _ := h.OrderRepository.FindUserById(request.UserId)
 
+	//counting all price for all buyer
 	var totalPrice int
 	for i := 1; i <= len(request.UserId); i++ {
 		pddetail, _ := h.UserRepository.GetUser(i)
 		totalPrice += pddetail.Total
 	}
+
+	var discountUser int
+	for i := 1; i <= len(request.UserId); i++ {
+		pddetail, _ := h.UserRepository.GetUser(i)
+		discountUser = (pddetail.Total / totalPrice) * 100
+	}
+
+	//counting price after
 	var countDis int
-	if totalPrice*request.Discount > 30.000 {
-		countDis += 30.000
+	if (totalPrice*request.Discount)/100 > request.Maxdiscount {
+		countDis += request.Maxdiscount
 	} else {
-		countDis = totalPrice * request.Discount
+		countDis = (totalPrice * request.Discount) / 100
 	}
 
-	var finalPrice int
-	finalPrice = totalPrice - countDis
+	//counting final price after discount
+	finalPrice := totalPrice - countDis
 
-	order := models.Order{
-		Discount: request.Discount,
-		Total:    finalPrice,
-		User:     user,
+	//counting final price for each user
+
+	for i := 1; i <= len(request.UserId); i++ {
+		pddetail, _ := h.UserRepository.GetUser(i)
+		pddetail.Total = (finalPrice * discountUser) / 100
+		_, _ = h.UserRepository.UpdateTotal(pddetail, request.UserId[i])
+		// user = append(user, newUser)
 	}
 
-	order, err = h.OrderRepository.CreateOrder(order)
+	// for i
+
+	// order := models.Order{
+	// 	Discount: request.Discount,
+	// 	Total:    finalPrice,
+	// 	MaxDiscount: request.Maxdiscount,
+	// 	Users: 	user,
+	// }
+
+	// order, err = h.OrderRepository.CreateOrder(order)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -111,11 +130,11 @@ func (h *handlerOrder) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	order, _ = h.OrderRepository.GetOrder(order.ID)
+	// order, _ = h.OrderRepository.GetOrder(order.ID)
 
 	w.WriteHeader(http.StatusOK)
-	response := dto.SuccessResult{Code: http.StatusOK, Data: order}
-	json.NewEncoder(w).Encode(response)
+	// response := dto.SuccessResult{Code: http.StatusOK, Data: order}
+	// json.NewEncoder(w).Encode(response)
 }
 
 func convertResponseOrder(p models.Order) models.Order {
@@ -123,6 +142,5 @@ func convertResponseOrder(p models.Order) models.Order {
 		ID:       p.ID,
 		Discount: p.Discount,
 		Total:    p.Total,
-		User:     p.User,
 	}
 }

@@ -5,6 +5,5 @@ type Order struct {
 	Discount    int    `json:"discount" form:"discount" gorm:"type: int"`
 	Total       int    `json:"total" form:"total" gorm:"type: int"`
 	MaxDiscount int    `json:"maxdiscount" form:"maxdiscount"`
-	UserId      []int  `json:"userId"`
-	User        []User `json:"user"`
+	Users       []User `json:"users" gorm:"HasMany"`
 }

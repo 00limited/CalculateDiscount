@@ -6,4 +6,6 @@ type User struct {
 	Total     int       `json:"total" form:"total" gorm:"type: int"`
 	Product   []Product `json:"product" gorm:"many2many:product_user"`
 	ProductID []int     `json:"-" form:"product_id" gorm:"-"`
+	OrderID   uint      `json:"order_id" gorm:"type: int"`
+	Order     Order     `json:"order" gorm:"HasOne"`
 }
